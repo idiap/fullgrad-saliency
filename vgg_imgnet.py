@@ -68,12 +68,12 @@ class VGG(nn.Module):
             self._initialize_weights()
 
     def forward(self, x):
-        x, out_feat = self.organize_features(x)
+        x  = self.organize_features(x)
         #x = self.features(x)
         x = x.view(x.size(0), -1)
         #x = x.sum()
         x = self.classifier(x)
-        return x, out_feat
+        return x
 
     def organize_features(self, x):
         in_channels = 3
@@ -100,7 +100,7 @@ class VGG(nn.Module):
 
             count = count + 1
 
-        return x, x_feat
+        return x
 
 
     def _initialize_weights(self):
