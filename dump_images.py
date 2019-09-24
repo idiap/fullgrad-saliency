@@ -5,9 +5,16 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import datasets, transforms, utils
 import numpy as np
-from viz import *
+from fullgrad import *
 from vgg_imgnet import *
 from misc_functions import *
+
+"""
+Changes:
+1) Make PATH as argument
+2) implement different post-processing methods
+"""
+
 
 PATH = '/idiap/temp/ssrinivas/Interpretation/full-grad/'
 dataset = PATH + 'dataset/'
@@ -22,7 +29,7 @@ device = torch.device("cuda" if cuda else "cpu")
 
 sample_loader = torch.utils.data.DataLoader(
     datasets.ImageFolder(dataset, transform=transforms.Compose([
-                       transforms.CenterCrop(224),
+                       transforms.Resize((224,224)),
                        transforms.ToTensor(),
                        transforms.Normalize(mean = [0.485, 0.456, 0.406],
                                         std = [0.229, 0.224, 0.225])
@@ -31,11 +38,13 @@ sample_loader = torch.utils.data.DataLoader(
 
 
 def pretrain(model):
-    pretrained = torch.load(PATH + 'vgg16_bn.pth')
+    #pretrained = torch.load(PATH + 'vgg16_bn.pth')
+    pretrained = utils.model_zoo.load_url('https://download.pytorch.org/models/vgg16_bn-6c64b313.pth')
     load_pretrained_model(model, pretrained)
     return model
 
-model = VGG('B').to(device)
+model = pretrain(VGG('DAll').to(device))
+
 fullgrad = FullGrad(model)
 
 class NormalizeInverse(transforms.Normalize):
@@ -75,11 +84,11 @@ def validate():
         cam = fullgrad.saliency(data)
 
         for i in range(batch_size):
-            filename = save_path + str( (batch_idx+1) * (i+1)) # + '_' + args.saliency_method 
+            filename = save_path + str( (batch_idx+1) * (i+1)) 
 
             #utils.save_image(sal[i,:,:,:], filename, nrow=1, padding = 0, normalize = True)
             unnorm_data = unnorm(data[i,:,:,:].cpu())
-            save_class_activation_on_image(unnorm_data.data.cpu().numpy(), cam[i,:,:,:].data.cpu().numpy(), filename, use_image=1.0)
+            save_class_activation_on_image(unnorm_data.data.cpu().numpy(), cam[i,:,:,:].data.cpu().numpy(), filename)
 
         
 create_folder(save_path)

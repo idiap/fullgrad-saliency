@@ -71,7 +71,6 @@ class VGG(nn.Module):
         x  = self.organize_features(x)
         #x = self.features(x)
         x = x.view(x.size(0), -1)
-        #x = x.sum()
         x = self.classifier(x)
         return x
 
@@ -134,7 +133,7 @@ class VGG(nn.Module):
             else:
                 conv2d = nn.Conv2d(in_channels, v, kernel_size=3, padding=1)
                 if batch_norm:
-                    layers += [conv2d, nn.BatchNorm2d(v), nn.ReLU(inplace=True)]
+                    layers += [conv2d, nn.BatchNorm2d(v), nn.ReLU(inplace=False)]
                 else:
                     layers += [conv2d, nn.ReLU(inplace=True)]
                 in_channels = v
