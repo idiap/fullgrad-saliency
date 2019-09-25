@@ -1,14 +1,18 @@
-Full-Gradient saliency
-======================
+# Full-Gradient Saliency Maps 
 
 This code is the reference implementation of the methods described 
-in our NeurIPS 2019 publication `"Full-Gradient Representation for Neural Network Visualization"
-<https://arxiv.org/abs/1905.00780>`_.
+in our NeurIPS 2019 publication ["Full-Gradient Representation for Neural Network Visualization"](https://arxiv.org/abs/1905.00780).
 
 
-Usage
-------
-.. code::
-    python3 dump_images.py
+## Usage
+Simply run the following command
 
+``` 
+python3 dump_images.py
+``` 
+
+## Dependencies
+- Python 3.5+
+- Pytorch 1.0+
+- OpenCV-python
 
