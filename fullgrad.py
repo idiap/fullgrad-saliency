@@ -1,6 +1,14 @@
+#
+# Copyright (c) 2019 Idiap Research Institute, http://www.idiap.ch/
+# Written by Suraj Srinivas <suraj.srinivas@idiap.ch>
+#
+
+""" Implement FullGrad saliency algorithm """
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from math import isclose
 
 
 def linearity_test(m):
@@ -9,6 +17,7 @@ def linearity_test(m):
 
     # Linear modules to check against
     lin_modules = [nn.Conv2d, nn.BatchNorm2d, nn.Linear]
+    # Nonlinear modules to check against
     nonlin_modules = [nn.ReLU, nn.MaxPool2d]
 
     lin_match = False
@@ -24,12 +33,13 @@ def linearity_test(m):
     elif nonlin_match:
         return 'nonlinear'
     else:
+        # Any other modules are ignored (E.g.: Sequential, ModuleList)
         return None
 
 
 class FullGrad():
     """
-    Compute FullGrad saliency map and full gradient decomposition for any model
+    Compute FullGrad saliency map and full gradient decomposition 
     """
 
     def __init__(self, model, im_size = (3,224,224) ):
@@ -64,7 +74,7 @@ class FullGrad():
             elif linearity_test(m) == 'nonlinear':
                 # check if previous module was linear
                 if lin_block:
-                    blockwise_biases.append(input_bias.clone().detach())
+                    blockwise_biases.append(input_bias.clone())
                     lin_block = 0
 
                 input_bias = m(input_bias) * 0.
@@ -82,7 +92,9 @@ class FullGrad():
     def checkCompleteness(self):
         """
         Check if completeness property is satisfied. If not, it usually means that
-        some bias gradients are not computed (e.g.: implicit biases). 
+        some bias gradients are not computed (e.g.: implicit biases). Check
+        vgg_imagenet.py for more information.
+
         """
 
         #Random input image
@@ -101,7 +113,9 @@ class FullGrad():
             fullgradient_sum += temp.sum()
 
         # Compare raw output and full gradient sum
-        assert (int(raw_output.max() * 10.) == int(fullgradient_sum * 10.)), "Completeness test failed!" 
+        err_message = "\nThis is due to incorrect computation of bias-gradients. Please check vgg_imagenet.py for more information."
+        err_string = "Completeness test failed! Raw output = " + str(raw_output.max().item()) + " Full-gradient sum = " + str(fullgradient_sum.item())  
+        assert isclose(raw_output.max().item(), fullgradient_sum.item(), rel_tol=0.01), err_string + err_message
         print('Completeness test passed!') 
 
     def _getFeatures(self, image):
@@ -184,7 +198,7 @@ class FullGrad():
         self.model.eval()
         input_grad, bias_grad = self.fullGradientDecompose(image, target_class=target_class)
         
-        # Gradient * image
+        # Input-gradient * image
         grd = input_grad[0] * image
         gradient = self._postProcess(grd).sum(1, keepdim=True)
         cam = gradient

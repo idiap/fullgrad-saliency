@@ -1,32 +1,33 @@
-import argparse
+#
+# Copyright (c) 2019 Idiap Research Institute, http://www.idiap.ch/
+# Written by Suraj Srinivas <suraj.srinivas@idiap.ch>
+#
+
+""" Compute saliency maps of images from dataset folder 
+    and dump them in a results folder """
+
 import torch
 import subprocess
 import torch.nn as nn
 import torch.nn.functional as F
-from torchvision import datasets, transforms, utils
+from torchvision import datasets, transforms, utils, models
 import numpy as np
-from fullgrad import *
-from vgg_imgnet import *
+import os
+
+from fullgrad import FullGrad
+from vgg_imagenet import *
 from misc_functions import *
 
-"""
-Changes:
-1) Make PATH as argument
-2) implement different post-processing methods
-"""
-
-
-PATH = '/idiap/temp/ssrinivas/Interpretation/full-grad/'
+# PATH variables
+PATH = os.path.dirname(os.path.abspath(__file__)) + '/'
 dataset = PATH + 'dataset/'
 
-parser = argparse.ArgumentParser(description='Command line arguments for FullGrad')
-args = parser.parse_args()
-
-batch_size = 5
+batch_size = 1
 
 cuda = torch.cuda.is_available()
 device = torch.device("cuda" if cuda else "cpu")
 
+# Dataset loader for sample images
 sample_loader = torch.utils.data.DataLoader(
     datasets.ImageFolder(dataset, transform=transforms.Compose([
                        transforms.Resize((224,224)),
@@ -36,64 +37,38 @@ sample_loader = torch.utils.data.DataLoader(
                    ])),
     batch_size= batch_size, shuffle=False)
 
-
-def pretrain(model):
-    #pretrained = torch.load(PATH + 'vgg16_bn.pth')
-    pretrained = utils.model_zoo.load_url('https://download.pytorch.org/models/vgg16_bn-6c64b313.pth')
-    load_pretrained_model(model, pretrained)
-    return model
-
-model = pretrain(VGG('DAll').to(device))
-
-fullgrad = FullGrad(model)
-
-class NormalizeInverse(transforms.Normalize):
-    """
-    Undoes the normalization and returns the reconstructed images in the input domain.
-    """
-
-    def __init__(self, mean, std):
-        mean = torch.as_tensor(mean)
-        std = torch.as_tensor(std)
-        std_inv = 1 / (std + 1e-7)
-        mean_inv = -mean * std_inv
-        super(NormalizeInverse, self).__init__(mean=mean_inv, std=std_inv)
-
-    def __call__(self, tensor):
-        return super(NormalizeInverse, self).__call__(tensor.clone())
-
-unnorm = NormalizeInverse(mean = [0.485, 0.456, 0.406],
+unnormalize = NormalizeInverse(mean = [0.485, 0.456, 0.406],
                            std = [0.229, 0.224, 0.225])
 
-def create_folder(folder_name):
-    try:
-        subprocess.call(['mkdir','-p',folder_name])
-    except OSError:
-        None
+
+model = vgg11(pretrained=True)
+
+# Initialize FullGrad object
+fullgrad = FullGrad(model)
 
 save_path = PATH + 'results/'
 
-def validate():
-    model.eval()
+def compute_saliency_and_save():
     for batch_idx, (data, target) in enumerate(sample_loader):
         data, target = data.to(device).requires_grad_(), target.to(device)
 
-        batch_size = data.size(0)
-        model.zero_grad()
-
+        # Compute saliency maps for the input data
         cam = fullgrad.saliency(data)
 
-        for i in range(batch_size):
-            filename = save_path + str( (batch_idx+1) * (i+1)) 
+        # Save saliency maps
+        for i in range(data.size(0)):
+            filename = save_path + str( (batch_idx+1) * (i+1)) + '.jpg'
 
-            #utils.save_image(sal[i,:,:,:], filename, nrow=1, padding = 0, normalize = True)
-            unnorm_data = unnorm(data[i,:,:,:].cpu())
-            save_class_activation_on_image(unnorm_data.data.cpu().numpy(), cam[i,:,:,:].data.cpu().numpy(), filename)
+            image = unnormalize(data[i,:,:,:].cpu())
+            save_saliency_map(image, cam[i,:,:,:], filename)
 
-        
+
+#---------------------------------------------------------------------------------#
+
 create_folder(save_path)
-validate()
+compute_saliency_and_save()
 
+#---------------------------------------------------------------------------------#
         
         
 
