@@ -85,7 +85,7 @@ class FullGrad():
         return blockwise_biases
 
     def _getimplicitBiases(self, image, target_class):
-        # TODO: Compute implicit biases that arise due to non-linearities
+        # TODO: Compute implicit biases that arise due to non-ReLU non-linearities
         # This appends to both the blockwise_biases and blockwise_features list
         None
 
@@ -116,7 +116,7 @@ class FullGrad():
         err_message = "\nThis is due to incorrect computation of bias-gradients. Please check vgg_imagenet.py for more information."
         err_string = "Completeness test failed! Raw output = " + str(raw_output.max().item()) + " Full-gradient sum = " + str(fullgradient_sum.item())  
         assert isclose(raw_output.max().item(), fullgradient_sum.item(), rel_tol=0.01), err_string + err_message
-        print('Completeness test passed!') 
+        print('Completeness test passed for FullGrad.') 
 
     def _getFeatures(self, image):
         """
@@ -203,11 +203,13 @@ class FullGrad():
         gradient = self._postProcess(grd).sum(1, keepdim=True)
         cam = gradient
 
-        # Bias-gradients
-        for i in range(len(bias_grad) - 3):
-            temp = self._postProcess(bias_grad[i])
-            gradient = F.interpolate(temp, size=(self.im_size[2], self.im_size[3]), mode = 'bilinear', align_corners=False) 
-            cam += gradient.sum(1, keepdim=True)
+        # Bias-gradients of conv layers
+        for i in range(len(bias_grad)):
+            # Checking if bias-gradients are 4d tensors
+            if len(bias_grad[i].size()) == 4: 
+                temp = self._postProcess(bias_grad[i])
+                gradient = F.interpolate(temp, size=(self.im_size[2], self.im_size[3]), mode = 'bilinear', align_corners=False) 
+                cam += gradient.sum(1, keepdim=True)
 
         return cam
         

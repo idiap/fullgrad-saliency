@@ -11,6 +11,8 @@ Simply run the following command
 python3 dump_images.py
 ``` 
 
+The saliency maps should be saved consequently in a results folder.
+
 ## Dependencies
 - Python 3.5+
 - Pytorch 1.0+

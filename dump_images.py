@@ -15,6 +15,7 @@ import numpy as np
 import os
 
 from fullgrad import FullGrad
+from simple_fullgrad import SimpleFullGrad
 from vgg_imagenet import *
 from misc_functions import *
 
@@ -42,9 +43,10 @@ unnormalize = NormalizeInverse(mean = [0.485, 0.456, 0.406],
 
 
 model = vgg16_bn(pretrained=True)
-
+ 
 # Initialize FullGrad object
 fullgrad = FullGrad(model)
+simple_fullgrad = SimpleFullGrad(model)
 
 save_path = PATH + 'results/'
 
@@ -54,19 +56,26 @@ def compute_saliency_and_save():
 
         # Compute saliency maps for the input data
         cam = fullgrad.saliency(data)
+        cam_simple = simple_fullgrad.saliency(data)
 
         # Save saliency maps
         for i in range(data.size(0)):
-            filename = save_path + str( (batch_idx+1) * (i+1)) + '.jpg'
+            filename = save_path + str( (batch_idx+1) * (i+1)) 
+            filename_simple = filename + '_simple'
 
             image = unnormalize(data[i,:,:,:].cpu())
-            save_saliency_map(image, cam[i,:,:,:], filename)
+            save_saliency_map(image, cam[i,:,:,:], filename + '.jpg')
+            save_saliency_map(image, cam_simple[i,:,:,:], filename_simple + '.jpg')
 
 
 #---------------------------------------------------------------------------------#
 
+# Create folder to saliency maps
 create_folder(save_path)
+
 compute_saliency_and_save()
+
+print('Saliency maps saved.')
 
 #---------------------------------------------------------------------------------#
         
