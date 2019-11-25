@@ -24,6 +24,35 @@ import torch.nn.functional as F
 from math import isclose
 
 
+<<<<<<< HEAD
+=======
+def linearity_test(m):
+    # Find out if a given layer is linear or not
+    # by manually checking the module type
+
+    # Linear modules to check against
+    lin_modules = [nn.Conv2d, nn.BatchNorm2d, nn.Linear]
+    # Nonlinear modules to check against
+    nonlin_modules = [nn.ReLU, nn.MaxPool2d]
+
+    lin_match = False
+    for mod in lin_modules:
+        lin_match = lin_match or isinstance(m, mod)
+
+    nonlin_match = False
+    for mod in nonlin_modules:
+        nonlin_match = nonlin_match or isinstance(m, mod)
+
+    if lin_match:
+        return 'linear'
+    elif nonlin_match:
+        return 'nonlinear'
+    else:
+        # Any other modules are ignored (E.g.: Sequential, ModuleList)
+        return None
+
+
+>>>>>>> a840bb6aa16cfb37db3f4fc9b058a7ccccc1fd78
 class SimpleFullGrad():
     """
     Compute simple FullGrad saliency map 
@@ -34,13 +63,48 @@ class SimpleFullGrad():
         self.im_size = (1,) + im_size
 
 
+<<<<<<< HEAD
+=======
+    def _getFeatures(self, image):
+        """
+        Compute intermediate features at the end of the every linear
+        block, for a given input image. Get feature before every 
+        ReLU layer at the convolutional (feature extraction) layers
+        """
+
+        self.model.eval()
+        lin_block = 0
+        blockwise_features = [image]
+        feature = image
+
+        for m in self.model.modules():
+            # Assume modules are arranged in "chronological" fashion
+
+            if isinstance(m, nn.ReLU):
+                # Get pre-ReLU activations for conv layers
+                if len(feature.size()) == 4:
+                    blockwise_features.append(feature)
+
+            if linearity_test(m) is not None:
+                if isinstance(m, nn.Linear):
+                    feature = feature.view(feature.size(0),-1)
+                feature = m(feature)
+
+        return feature, blockwise_features
+
+
+>>>>>>> a840bb6aa16cfb37db3f4fc9b058a7ccccc1fd78
     def _getGradients(self, image, target_class=None):
         """
         Compute intermediate gradients for an image
         """
 
         image = image.requires_grad_()
+<<<<<<< HEAD
         out, features = self.model.getFeatures(image)
+=======
+        out, features = self._getFeatures(image)
+>>>>>>> a840bb6aa16cfb37db3f4fc9b058a7ccccc1fd78
 
         if target_class is None:
             target_class = out.data.max(1, keepdim=True)[1]
