@@ -16,11 +16,7 @@ import os
 
 from fullgrad import FullGrad
 from simple_fullgrad import SimpleFullGrad
-<<<<<<< HEAD
 from vgg import *
-=======
-from vgg_imagenet import *
->>>>>>> a840bb6aa16cfb37db3f4fc9b058a7ccccc1fd78
 from misc_functions import *
 
 # PATH variables
@@ -46,11 +42,7 @@ unnormalize = NormalizeInverse(mean = [0.485, 0.456, 0.406],
                            std = [0.229, 0.224, 0.225])
 
 
-<<<<<<< HEAD
 model = vgg16_bn(pretrained=False)
-=======
-model = vgg16_bn(pretrained=True)
->>>>>>> a840bb6aa16cfb37db3f4fc9b058a7ccccc1fd78
  
 # Initialize FullGrad object
 fullgrad = FullGrad(model)
