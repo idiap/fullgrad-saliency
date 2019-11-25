@@ -16,6 +16,7 @@
 
 """
 
+import torch
 import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
 
@@ -56,10 +57,46 @@ class VGG(nn.Module):
         if init_weights:
             self._initialize_weights()
 
+        self.get_biases = False
+        self.get_features = False
+
+        self.biases = []
+        self.feature_list = []
+
+
+    def getBiases(self):
+        self.get_biases = True
+        self.biases = [0]
+
+        x = torch.zeros(1,3,224,224) #put in GPU
+        _ = self.forward(x)
+        self.get_biases = False
+        return self.biases
+
+
+    def getFeatures(self, x):
+        self.get_features = True
+        self.feature_list = [x]
+
+        x = self.forward(x)
+        self.get_features = False
+        return x, self.feature_list
+
+
+    def _classify(self, x):
+        for m in self.classifier: 
+            x = m(x)
+            if isinstance(m, nn.Linear):
+                if self.get_biases:
+                    self.biases.append(m.bias)
+                if self.get_features:
+                    self.feature_list.append(x)
+        return x
+
     def forward(self, x):
-        x  = self.organize_features(x)
+        x = self.organize_features(x)
         x = x.view(x.size(0), -1)
-        x = self.classifier(x)
+        x = self._classify(x)
         return x
 
     def organize_features(self, x):
@@ -71,17 +108,28 @@ class VGG(nn.Module):
             if (i == 'M'):
                 x = self.features[count](x)
             else:
-                if self.bn:
-                    x = self.features[count](x)
-                    count = count + 1
-                x = self.features[count](x)
-                count = count + 1
+                if self.get_biases:
+                    input_bias = torch.zeros(x.size()).to(x.device)
+                    input_bias, _ = self._linear_block(input_bias, count)
+                    self.biases.append(input_bias.detach())
+
+                x, count = self._linear_block(x, count)    
+                if self.get_features:
+                    self.feature_list.append(x)
+
                 x = self.features[count](x)
 
             count = count + 1
 
         return x
 
+    def _linear_block(self, x, count):
+        if self.bn:
+            x = self.features[count](x)
+            count = count + 1
+        x = self.features[count](x)
+        count = count + 1
+        return x, count
 
     def _initialize_weights(self):
         for m in self.modules():
