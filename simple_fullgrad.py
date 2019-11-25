@@ -85,9 +85,10 @@ class SimpleFullGrad():
 
         # Intermediate-gradients
         for i in range(len(intermed_grad)):
-            temp = self._postProcess(intermed_grad[i])
-            gradient = F.interpolate(temp, size=(self.im_size[2], self.im_size[3]), mode = 'bilinear', align_corners=False) 
-            cam += gradient.sum(1, keepdim=True)
+            if len(intermed_grad[i].size()) == 4:
+                temp = self._postProcess(intermed_grad[i])
+                gradient = F.interpolate(temp, size=(self.im_size[2], self.im_size[3]), mode = 'bilinear', align_corners=False) 
+                cam += gradient.sum(1, keepdim=True)
 
         return cam
         
