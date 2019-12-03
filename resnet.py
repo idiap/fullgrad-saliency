@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from .utils import load_state_dict_from_url
+from torch.hub import load_state_dict_from_url
 
 
 __all__ = ['ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101',
@@ -48,17 +48,32 @@ class BasicBlock(nn.Module):
         # Both self.conv1 and self.downsample layers downsample the input when stride != 1
         self.conv1 = conv3x3(inplanes, planes, stride)
         self.bn1 = norm_layer(planes)
-        self.relu = nn.ReLU(inplace=True)
+        self.relu = nn.ReLU(inplace=False)
         self.conv2 = conv3x3(planes, planes)
         self.bn2 = norm_layer(planes)
         self.downsample = downsample
         self.stride = stride
 
     def forward(self, x):
+        fullgrad_info = x[1]
+        x = x[0]
+
         identity = x
+
+        if fullgrad_info['get_biases']:
+            x = torch.zeros(x.size()).to(x.device)
 
         out = self.conv1(x)
         out = self.bn1(out)
+
+        if fullgrad_info['get_biases']:
+            fullgrad_info['biases'].append(out)
+            out = torch.zeros(out.size()).to(out.device)
+            x = torch.zeros(x.size()).to(x.device)
+
+        if fullgrad_info['get_features']:
+            fullgrad_info['features'].append(out)
+
         out = self.relu(out)
 
         out = self.conv2(out)
@@ -67,10 +82,17 @@ class BasicBlock(nn.Module):
         if self.downsample is not None:
             identity = self.downsample(x)
 
-        out += identity
+        out += identity 
+
+        if fullgrad_info['get_biases']:
+            fullgrad_info['biases'].append(out)
+
+        if fullgrad_info['get_features']:
+            fullgrad_info['features'].append(out)
+
         out = self.relu(out)
 
-        return out
+        return (out, fullgrad_info)
 
 
 class Bottleneck(nn.Module):
@@ -127,7 +149,7 @@ class ResNet(nn.Module):
         self.fullgrad_info = {
             'get_biases': False,
             'get_features': False,
-            'biases':[]
+            'biases':[],
             'features': []
         }
 
@@ -149,15 +171,15 @@ class ResNet(nn.Module):
         self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=7, stride=2, padding=3,
                                bias=False)
         self.bn1 = norm_layer(self.inplanes)
-        self.relu = nn.ReLU(inplace=True)
+        self.relu = nn.ReLU(inplace=False)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-        self.layer1 = self._make_layer(block, 64, layers[0], self.fullgrad_info)
+        self.layer1 = self._make_layer(block, 64, layers[0])
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2,
-                                       dilate=replace_stride_with_dilation[0], self.fullgrad_info)
+                                       dilate=replace_stride_with_dilation[0])
         self.layer3 = self._make_layer(block, 256, layers[2], stride=2,
-                                       dilate=replace_stride_with_dilation[1], self.fullgrad_info)
+                                       dilate=replace_stride_with_dilation[1])
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2,
-                                       dilate=replace_stride_with_dilation[2], self.fullgrad_info)
+                                       dilate=replace_stride_with_dilation[2])
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Linear(512 * block.expansion, num_classes)
 
@@ -179,7 +201,7 @@ class ResNet(nn.Module):
                 elif isinstance(m, BasicBlock):
                     nn.init.constant_(m.bn2.weight, 0)
 
-    def _make_layer(self, block, planes, blocks, stride=1, dilate=False, fullgrad_info=None):
+    def _make_layer(self, block, planes, blocks, stride=1, dilate=False):
         norm_layer = self._norm_layer
         downsample = None
         previous_dilation = self.dilation
@@ -206,17 +228,36 @@ class ResNet(nn.Module):
     def _forward(self, x):
         x = self.conv1(x)
         x = self.bn1(x)
+
+        if self.fullgrad_info['get_biases']:
+            self.fullgrad_info['biases'].append(x)
+
+        if self.fullgrad_info['get_features']:
+            self.fullgrad_info['features'].append(x)
+
         x = self.relu(x)
         x = self.maxpool(x)
 
-        x = self.layer1(x)
-        x = self.layer2(x)
-        x = self.layer3(x)
-        x = self.layer4(x)
+        (x,fullgrad_info) = self.layer1((x,self.fullgrad_info))
+        (x,fullgrad_info) = self.layer2((x,fullgrad_info))
+        (x,fullgrad_info) = self.layer3((x,fullgrad_info))
+        (x,fullgrad_info) = self.layer4((x,fullgrad_info))
+
+        self.fullgrad_info = fullgrad_info
 
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
+
+        if fullgrad_info['get_biases']:
+            x = torch.zeros(x.size()).to(x.device)
+
         x = self.fc(x)
+
+        if self.fullgrad_info['get_biases']:
+            self.fullgrad_info['biases'].append(x)
+            
+        if self.fullgrad_info['get_features']:
+            self.fullgrad_info['features'].append(x)
 
         return x
 

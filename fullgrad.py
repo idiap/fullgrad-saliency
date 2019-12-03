@@ -54,7 +54,7 @@ class FullGrad():
         # Compare raw output and full gradient sum
         err_message = "\nThis is due to incorrect computation of bias-gradients. Please check vgg_imagenet.py for more information."
         err_string = "Completeness test failed! Raw output = " + str(raw_output.max().item()) + " Full-gradient sum = " + str(fullgradient_sum.item())  
-        assert isclose(raw_output.max().item(), fullgradient_sum.item(), rel_tol=0.01), err_string + err_message
+        assert isclose(raw_output.max().item(), fullgradient_sum.item(), rel_tol=0.0001), err_string + err_message
         print('Completeness test passed for FullGrad.') 
 
 

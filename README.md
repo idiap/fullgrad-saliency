@@ -10,13 +10,13 @@ This repository implements two methods: the reference FullGrad algorithm, and a 
 Simply run the following command
 
 ``` 
-python3 dump_images.py
+python dump_images.py
 ``` 
 
 The saliency maps should be saved consequently in a results folder. 
 
 ## Dependencies
-- Python 3.5+
-- Pytorch 1.0+
-- OpenCV-python
+``` 
+torch torchvision cv2 numpy 
+```
 
