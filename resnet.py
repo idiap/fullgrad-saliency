@@ -123,6 +123,14 @@ class ResNet(nn.Module):
                  groups=1, width_per_group=64, replace_stride_with_dilation=None,
                  norm_layer=None):
         super(ResNet, self).__init__()
+
+        self.fullgrad_info = {
+            'get_biases': False,
+            'get_features': False,
+            'biases':[]
+            'features': []
+        }
+
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
         self._norm_layer = norm_layer
@@ -143,15 +151,16 @@ class ResNet(nn.Module):
         self.bn1 = norm_layer(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-        self.layer1 = self._make_layer(block, 64, layers[0])
+        self.layer1 = self._make_layer(block, 64, layers[0], self.fullgrad_info)
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2,
-                                       dilate=replace_stride_with_dilation[0])
+                                       dilate=replace_stride_with_dilation[0], self.fullgrad_info)
         self.layer3 = self._make_layer(block, 256, layers[2], stride=2,
-                                       dilate=replace_stride_with_dilation[1])
+                                       dilate=replace_stride_with_dilation[1], self.fullgrad_info)
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2,
-                                       dilate=replace_stride_with_dilation[2])
+                                       dilate=replace_stride_with_dilation[2], self.fullgrad_info)
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Linear(512 * block.expansion, num_classes)
+
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -170,7 +179,7 @@ class ResNet(nn.Module):
                 elif isinstance(m, BasicBlock):
                     nn.init.constant_(m.bn2.weight, 0)
 
-    def _make_layer(self, block, planes, blocks, stride=1, dilate=False):
+    def _make_layer(self, block, planes, blocks, stride=1, dilate=False, fullgrad_info=None):
         norm_layer = self._norm_layer
         downsample = None
         previous_dilation = self.dilation
@@ -210,6 +219,23 @@ class ResNet(nn.Module):
         x = self.fc(x)
 
         return x
+
+    def getBiases(self):
+        self.fullgrad_info['get_biases'] = True
+        self.fullgrad_info['biases'] = [0]
+
+        x = torch.zeros(1,3,224,224)
+        _ = self.forward(x)
+        self.fullgrad_info['get_biases'] = False
+        return self.fullgrad_info['biases']
+
+    def getFeatures(self, x):
+        self.fullgrad_info['get_features'] = True
+        self.fullgrad_info['features'] = [x]
+
+        x = self.forward(x)
+        self.fullgrad_info['get_features'] = False
+        return x, self.fullgrad_info['features']
 
     # Allow for accessing forward method in a inherited class
     forward = _forward
