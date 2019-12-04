@@ -1,3 +1,18 @@
+#
+# Copyright (c) 2019 Idiap Research Institute, http://www.idiap.ch/
+# Written by Suraj Srinivas <suraj.srinivas@idiap.ch>
+#
+# Adapted from - https://github.com/pytorch/vision/blob/master/torchvision/models/resnet.py
+
+""" 
+    Define ResNet models with getBiases() and getFeatures() methods. 
+
+    For correct computation of full-gradients do *not* use inplace operations inside 
+    the model. E.g.: for ReLU use `F.relu(inplace=False)`, and use `out = out + identity`
+    for residual connections instead of `out += identity`.
+
+"""
+
 import torch
 import torch.nn as nn
 from torch.hub import load_state_dict_from_url
@@ -55,24 +70,29 @@ class BasicBlock(nn.Module):
         self.stride = stride
 
     def forward(self, x):
-        fullgrad_info = x[1]
+        """
+        Args:
+            x -> tuple of (module input, fullgrad_info)
+
+        Output:
+            out -> tuple of (module output, fullgrad_info)
+
+        """
+        info = x[1]
         x = x[0]
 
         identity = x
 
-        if fullgrad_info['get_biases']:
-            x = torch.zeros(x.size()).to(x.device)
+        if info['get_biases']: x = torch.zeros(x.size()).to(x.device)
 
         out = self.conv1(x)
         out = self.bn1(out)
 
-        if fullgrad_info['get_biases']:
-            fullgrad_info['biases'].append(out)
+        if info['get_biases']:
+            info['biases'].append(out)
             out = torch.zeros(out.size()).to(out.device)
-            x = torch.zeros(x.size()).to(x.device)
 
-        if fullgrad_info['get_features']:
-            fullgrad_info['features'].append(out)
+        if info['get_features']: info['features'].append(out)
 
         out = self.relu(out)
 
@@ -81,18 +101,16 @@ class BasicBlock(nn.Module):
 
         if self.downsample is not None:
             identity = self.downsample(x)
+            if info['get_biases']: info['biases'].append(identity)
+            if info['get_features']: info['features'].append(identity)
+        
+        if info['get_biases']: info['biases'].append(out)
+        if info['get_features']: info['features'].append(out)
 
-        out += identity 
-
-        if fullgrad_info['get_biases']:
-            fullgrad_info['biases'].append(out)
-
-        if fullgrad_info['get_features']:
-            fullgrad_info['features'].append(out)
-
+        out = out + identity
         out = self.relu(out)
 
-        return (out, fullgrad_info)
+        return (out, info)
 
 
 class Bottleneck(nn.Module):
@@ -112,19 +130,38 @@ class Bottleneck(nn.Module):
         self.bn2 = norm_layer(width)
         self.conv3 = conv1x1(width, planes * self.expansion)
         self.bn3 = norm_layer(planes * self.expansion)
-        self.relu = nn.ReLU(inplace=True)
+        self.relu = nn.ReLU(inplace=False)
         self.downsample = downsample
         self.stride = stride
 
     def forward(self, x):
+        info = x[1]
+        x = x[0]
+        
         identity = x
+
+        if info['get_biases']: x = torch.zeros(x.size()).to(x.device)
 
         out = self.conv1(x)
         out = self.bn1(out)
+
+        if info['get_biases']:
+            info['biases'].append(out)
+            out = torch.zeros(out.size()).to(out.device)
+
+        if info['get_features']: info['features'].append(out)
+
         out = self.relu(out)
 
         out = self.conv2(out)
         out = self.bn2(out)
+
+        if info['get_biases']:
+            info['biases'].append(out)
+            out = torch.zeros(out.size()).to(out.device)
+
+        if info['get_features']: info['features'].append(out)
+
         out = self.relu(out)
 
         out = self.conv3(out)
@@ -132,11 +169,16 @@ class Bottleneck(nn.Module):
 
         if self.downsample is not None:
             identity = self.downsample(x)
+            if info['get_biases']: info['biases'].append(identity)
+            if info['get_features']: info['features'].append(identity)
 
-        out += identity
+        if info['get_biases']: info['biases'].append(out)
+        if info['get_features']: info['features'].append(out)
+
+        out = out + identity
         out = self.relu(out)
 
-        return out
+        return (out, info)
 
 
 class ResNet(nn.Module):
@@ -146,6 +188,7 @@ class ResNet(nn.Module):
                  norm_layer=None):
         super(ResNet, self).__init__()
 
+        # Dictionary that stores FullGrad information
         self.fullgrad_info = {
             'get_biases': False,
             'get_features': False,
@@ -229,11 +272,8 @@ class ResNet(nn.Module):
         x = self.conv1(x)
         x = self.bn1(x)
 
-        if self.fullgrad_info['get_biases']:
-            self.fullgrad_info['biases'].append(x)
-
-        if self.fullgrad_info['get_features']:
-            self.fullgrad_info['features'].append(x)
+        if self.fullgrad_info['get_biases']: self.fullgrad_info['biases'].append(x)
+        if self.fullgrad_info['get_features']: self.fullgrad_info['features'].append(x)
 
         x = self.relu(x)
         x = self.maxpool(x)
@@ -248,20 +288,21 @@ class ResNet(nn.Module):
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
 
-        if fullgrad_info['get_biases']:
-            x = torch.zeros(x.size()).to(x.device)
+        if self.fullgrad_info['get_biases']: x = torch.zeros(x.size()).to(x.device)
 
         x = self.fc(x)
 
-        if self.fullgrad_info['get_biases']:
-            self.fullgrad_info['biases'].append(x)
-            
-        if self.fullgrad_info['get_features']:
-            self.fullgrad_info['features'].append(x)
+        if self.fullgrad_info['get_biases']: self.fullgrad_info['biases'].append(x)
+        if self.fullgrad_info['get_features']: self.fullgrad_info['features'].append(x)
 
         return x
 
     def getBiases(self):
+        """
+        Returns the explicit biases arising 
+        from BatchNorm or convolution layers.
+        """
+
         self.fullgrad_info['get_biases'] = True
         self.fullgrad_info['biases'] = [0]
 
@@ -271,6 +312,11 @@ class ResNet(nn.Module):
         return self.fullgrad_info['biases']
 
     def getFeatures(self, x):
+        """
+        Returns features at every layer before
+        the application of ReLU.
+        """
+
         self.fullgrad_info['get_features'] = True
         self.fullgrad_info['features'] = [x]
 

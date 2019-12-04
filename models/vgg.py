@@ -5,14 +5,10 @@
 # Adapted from - https://github.com/pytorch/vision/blob/master/torchvision/models/vgg.py
 
 """ 
-    Define VGG models. 
+    Define VGG models with getBiases() and getFeatures() methods. 
 
-    Some important model specifications for correct computation of full-gradients:
-    1) make sure .modules() returns layers in the correct order of computation
-    2) do NOT use inplace operations (!)
-
-    Note that support for implicit biases (i.e.; biases arising from non-linearities) 
-    is missing at the moment, so the code only works with ReLU-like non-linearities.
+    For correct computation of full-gradients do *not* use inplace operations inside 
+    the model. E.g.: for ReLU use `nn.ReLU(inplace=False)`.
 
 """
 
@@ -65,6 +61,11 @@ class VGG(nn.Module):
 
 
     def getBiases(self):
+        """
+        Returns the explicit biases arising 
+        from BatchNorm or convolution layers.
+        """
+
         self.get_biases = True
         self.biases = [0]
 
@@ -75,6 +76,11 @@ class VGG(nn.Module):
 
 
     def getFeatures(self, x):
+        """
+        Returns features at every layer before
+        the application of ReLU.
+        """
+        
         self.get_features = True
         self.feature_list = [x]
 

@@ -7,18 +7,15 @@
     and dump them in a results folder """
 
 import torch
-import subprocess
-import torch.nn as nn
-import torch.nn.functional as F
-from torchvision import datasets, transforms, utils, models
-import numpy as np
+from torchvision import datasets, transforms, utils
 import os
 
-from fullgrad import FullGrad
-from simple_fullgrad import SimpleFullGrad
-from vgg import *
+# Import saliency methods and models
+from saliency.fullgrad import FullGrad
+from saliency.simple_fullgrad import SimpleFullGrad
+from models.vgg import *
+from models.resnet import *
 from misc_functions import *
-from resnet import *
 
 # PATH variables
 PATH = os.path.dirname(os.path.abspath(__file__)) + '/'
@@ -43,10 +40,11 @@ unnormalize = NormalizeInverse(mean = [0.485, 0.456, 0.406],
                            std = [0.229, 0.224, 0.225])
 
 
-#model = vgg16_bn(pretrained=True)
+# uncomment to use VGG
+# model = vgg16_bn(pretrained=True)
 model = resnet18(pretrained=True)
 
-# Initialize FullGrad object
+# Initialize FullGrad objects
 fullgrad = FullGrad(model)
 simple_fullgrad = SimpleFullGrad(model)
 
@@ -70,16 +68,12 @@ def compute_saliency_and_save():
             save_saliency_map(image, cam_simple[i,:,:,:], filename_simple + '.jpg')
 
 
-#---------------------------------------------------------------------------------#
+if __name__ == "__main__":
+    # Create folder to saliency maps
+    create_folder(save_path)
+    compute_saliency_and_save()
+    print('Saliency maps saved.')
 
-# Create folder to saliency maps
-create_folder(save_path)
-
-compute_saliency_and_save()
-
-print('Saliency maps saved.')
-
-#---------------------------------------------------------------------------------#
         
         
 
