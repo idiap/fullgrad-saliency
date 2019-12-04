@@ -30,5 +30,4 @@ If you found our work helpful for your research, please do consider citing us.
     booktitle={Advances in Neural Information Processing Systems (NeurIPS)},
     year={2019}
 }
-
 ```
