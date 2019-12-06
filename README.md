@@ -5,16 +5,86 @@ in our NeurIPS 2019 publication ["Full-Gradient Representation for Neural Networ
 
 This repository implements two methods: the reference FullGrad algorithm, and a variant called "simple FullGrad", which omits computation of bias parameters for bias-gradients. 
 
-The codebase currents supports VGG, ResNet and ResNeXt architectures. Extending support for any other architecture of choice should be straightforward, and contributions are welcome! Among non-linearities, only ReLU-like functions are supported. For more information, please read the description of 'implicit  biases' in the paper on how to include support for non-ReLU functions.
+The codebase currents supports VGG, ResNet and ResNeXt architectures. Extending support for any other architecture of choice should be straightforward, and contributions are welcome! Among non-linearities, only ReLU-like functions are supported. For more information, please read the description of "implicit  biases" in the paper on how to include support for non-ReLU functions.
 
 ## Usage
-Simply run the following command
+Simply run the following command `python dump_images.py`. The saliency maps should be saved consequently in a results folder.
 
-``` 
-python dump_images.py
-``` 
+## Interfaces
 
-The saliency maps should be saved consequently in a results folder. 
+The FullGrad class has the following methods implemented.
+
+```python
+import saliency.FullGrad as FullGrad
+
+# Initialize FullGrad object
+# see below for model specs
+fullgrad = FullGrad(model)
+
+# Check completeness property
+# done automatically while initializing object
+fullgrad.checkCompleteness()
+
+# Obtain fullgradient decomposition
+input_gradient_term, bias_gradient_term = 
+fullgrad.fullGradientDecompose(input_image, target_class)
+
+# Obtain saliency maps
+saliency_map = fullgrad.saliency(input_image, target_class)
+```
+
+Here `model` is an object instance with the following interface. A correctly implemented model interface results in passing the `fullgrad.checkCompleteness()` test.
+
+```python
+class CustomModel(nn.Module):
+    def forward(self, x):
+        # implement forward pass
+        ...
+
+    def getBiases(self):
+        # obtain all bias parameters
+        # and batch norm running means
+        # in some order
+        ...
+
+    def getFeatures(self, x):
+        # obtain intermediate features
+        # in the same order as the biases
+        # above
+        ...
+
+model = CustomModel()
+```
+
+We also introduce a simpler variant called Simple FullGrad which skips bias parameter computations which results in a simpler interface, but no related completeness property or decomposition.
+
+```python
+import saliency.SimpleFullGrad as SimpleFullGrad
+
+# Initialize Simple FullGrad object
+simple_fullgrad = SimpleFullGrad(model)
+
+# Obtain saliency maps
+saliency_map = simple_fullgrad.saliency(input_image, target_class)
+```
+
+Here `model` is an object instance with the following simplified interface.
+
+```python
+class CustomModel(nn.Module):
+    def forward(self, x):
+        # implement forward pass
+        ...
+
+    def getFeatures(self, x):
+        # obtain intermediate features
+        # in the same order as the biases
+        # above
+        ...
+
+model = CustomModel()
+```
+
 
 ## Dependencies
 ``` 
