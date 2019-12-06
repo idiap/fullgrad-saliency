@@ -15,7 +15,7 @@ Simply run the following command `python dump_images.py`. The saliency maps shou
 The FullGrad class has the following methods implemented.
 
 ```python
-from saliency.fullGrad as FullGrad
+from saliency.fullGrad import FullGrad
 
 # Initialize FullGrad object
 # see below for model specs
