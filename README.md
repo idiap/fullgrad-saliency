@@ -78,8 +78,6 @@ class CustomModel(nn.Module):
 
     def getFeatures(self, x):
         # obtain intermediate features
-        # in the same order as the biases
-        # above
         ...
 
 model = CustomModel()
