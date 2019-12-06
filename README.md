@@ -15,7 +15,7 @@ Simply run the following command `python dump_images.py`. The saliency maps shou
 The FullGrad class has the following methods implemented.
 
 ```python
-import saliency.FullGrad as FullGrad
+from saliency.fullGrad as FullGrad
 
 # Initialize FullGrad object
 # see below for model specs
@@ -59,7 +59,7 @@ model = CustomModel()
 We also introduce a simpler variant called Simple FullGrad which skips bias parameter computations which results in a simpler interface, but no related completeness property or decomposition.
 
 ```python
-import saliency.SimpleFullGrad as SimpleFullGrad
+from saliency.simple_fullgrad import SimpleFullGrad
 
 # Initialize Simple FullGrad object
 simple_fullgrad = SimpleFullGrad(model)
