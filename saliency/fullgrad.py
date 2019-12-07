@@ -32,7 +32,7 @@ class FullGrad():
         """
         Check if completeness property is satisfied. If not, it usually means that
         some bias gradients are not computed (e.g.: implicit biases). Check
-        vgg_imagenet.py for more information.
+        models/vgg.py for more information.
 
         """
 
@@ -46,13 +46,12 @@ class FullGrad():
         # Compute full-gradients and add them up
         input_grad, bias_grad = self.fullGradientDecompose(input, target_class=None)
 
-        fullgradient_sum = (input_grad * input).sum(dim=(1,2,3))
+        fullgradient_sum = (input_grad * input).sum()
         for i in range(len(bias_grad)):
-            temp = bias_grad[i].view(1,-1)
-            fullgradient_sum += temp.sum()
+            fullgradient_sum += bias_grad[i].sum()
 
         # Compare raw output and full gradient sum
-        err_message = "\nThis is due to incorrect computation of bias-gradients. Please check vgg_imagenet.py for more information."
+        err_message = "\nThis is due to incorrect computation of bias-gradients. Please check models/vgg.py for more information."
         err_string = "Completeness test failed! Raw output = " + str(raw_output.max().item()) + " Full-gradient sum = " + str(fullgradient_sum.item())  
         assert isclose(raw_output.max().item(), fullgradient_sum.item(), rel_tol=0.00001), err_string + err_message
         print('Completeness test passed for FullGrad.') 
@@ -107,12 +106,17 @@ class FullGrad():
         gradient = self._postProcess(grd).sum(1, keepdim=True)
         cam = gradient
 
+        im_size = image.size()
+
         # Bias-gradients of conv layers
         for i in range(len(bias_grad)):
-            # Checking if bias-gradients are 4d tensors
-            if len(bias_grad[i].size()) == 4: 
+            # Checking if bias-gradients are 4d / 3d tensors
+            if len(bias_grad[i].size()) == len(im_size): 
                 temp = self._postProcess(bias_grad[i])
-                gradient = F.interpolate(temp, size=(self.im_size[2], self.im_size[3]), mode = 'bilinear', align_corners=False) 
+                if len(im_size) == 3:
+                    gradient = F.interpolate(temp, size=im_size[2], mode = 'bilinear', align_corners=False) 
+                elif len(im_size) == 4:
+                    gradient = F.interpolate(temp, size=(im_size[2], im_size[3]), mode = 'bilinear', align_corners=False) 
                 cam += gradient.sum(1, keepdim=True)
 
         return cam

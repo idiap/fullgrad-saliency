@@ -29,10 +29,8 @@ class SimpleFullGrad():
     Compute simple FullGrad saliency map 
     """
 
-    def __init__(self, model, im_size = (3,224,224) ):
+    def __init__(self, model):
         self.model = model
-        self.im_size = (1,) + im_size
-
 
     def _getGradients(self, image, target_class=None):
         """
@@ -78,6 +76,8 @@ class SimpleFullGrad():
         self.model.eval()
         input_grad, intermed_grad = self._getGradients(image, target_class=target_class)
         
+        im_size = image.size()
+
         # Input-gradient * image
         grd = input_grad[0] * image
         gradient = self._postProcess(grd).sum(1, keepdim=True)
@@ -85,9 +85,12 @@ class SimpleFullGrad():
 
         # Intermediate-gradients
         for i in range(len(intermed_grad)):
-            if len(intermed_grad[i].size()) == 4:
+            if len(intermed_grad[i].size()) == len(im_size):
                 temp = self._postProcess(intermed_grad[i])
-                gradient = F.interpolate(temp, size=(self.im_size[2], self.im_size[3]), mode = 'bilinear', align_corners=False) 
+                if len(im_size) == 3:
+                    gradient = F.interpolate(temp, size=im_size[2], mode = 'bilinear', align_corners=False) 
+                elif len(im_size) == 4:
+                    gradient = F.interpolate(temp, size=(im_size[2], im_size[3]), mode = 'bilinear', align_corners=False) 
                 cam += gradient.sum(1, keepdim=True)
 
         return cam
