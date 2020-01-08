@@ -4,10 +4,10 @@
 #
 # Adapted from - https://github.com/pytorch/vision/blob/master/torchvision/models/vgg.py
 
-""" 
-    Define VGG models with getBiases() and getFeatures() methods. 
+"""
+    Define VGG models with getBiases() and getFeatures() methods.
 
-    For correct computation of full-gradients do *not* use inplace operations inside 
+    For correct computation of full-gradients do *not* use inplace operations inside
     the model. E.g.: for ReLU use `nn.ReLU(inplace=False)`.
 
 """
@@ -16,7 +16,7 @@ import torch
 import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
 
-cfg = { 
+cfg = {
     'A': [64, 'M', 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512, 'M'],
     'B': [64, 64, 'M', 128, 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512, 'M'],
     'D': [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 'M', 512, 512, 512, 'M', 512, 512, 512, 'M'],
@@ -62,14 +62,17 @@ class VGG(nn.Module):
 
     def getBiases(self):
         """
-        Returns the explicit biases arising 
+        Returns the explicit biases arising
         from BatchNorm or convolution layers.
         """
+
+        cuda = torch.cuda.is_available()
+        device = torch.device("cuda" if cuda else "cpu")
 
         self.get_biases = True
         self.biases = [0]
 
-        x = torch.zeros(1,3,224,224) #put in GPU
+        x = torch.zeros(1,3,224,224).to(device) # put in GPU, if available
         _ = self.forward(x)
         self.get_biases = False
         return self.biases
@@ -80,7 +83,7 @@ class VGG(nn.Module):
         Returns features at every layer before
         the application of ReLU.
         """
-        
+
         self.get_features = True
         self.feature_list = [x]
 
@@ -90,7 +93,7 @@ class VGG(nn.Module):
 
 
     def _classify(self, x):
-        for m in self.classifier: 
+        for m in self.classifier:
             x = m(x)
             if isinstance(m, nn.Linear):
                 if self.get_biases:
@@ -119,7 +122,7 @@ class VGG(nn.Module):
                     input_bias, _ = self._linear_block(input_bias, count)
                     self.biases.append(input_bias.detach())
 
-                x, count = self._linear_block(x, count)    
+                x, count = self._linear_block(x, count)
                 if self.get_features:
                     self.feature_list.append(x)
 
