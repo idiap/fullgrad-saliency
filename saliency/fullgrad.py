@@ -36,8 +36,11 @@ class FullGrad():
 
         """
 
+        cuda = torch.cuda.is_available()
+        device = torch.device("cuda" if cuda else "cpu")
+
         #Random input image
-        input = torch.randn(self.im_size)
+        input = torch.randn(self.im_size).to(device)
 
         # Get raw outputs
         self.model.eval()
