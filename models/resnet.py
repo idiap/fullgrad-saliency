@@ -4,10 +4,10 @@
 #
 # Adapted from - https://github.com/pytorch/vision/blob/master/torchvision/models/resnet.py
 
-""" 
-    Define ResNet models with getBiases() and getFeatures() methods. 
+"""
+    Define ResNet models with getBiases() and getFeatures() methods.
 
-    For correct computation of full-gradients do *not* use inplace operations inside 
+    For correct computation of full-gradients do *not* use inplace operations inside
     the model. E.g.: for ReLU use `F.relu(inplace=False)`, and use `out = out + identity`
     for residual connections instead of `out += identity`.
 
@@ -103,7 +103,7 @@ class BasicBlock(nn.Module):
             identity = self.downsample(x)
             if info['get_biases']: info['biases'].append(identity)
             if info['get_features']: info['features'].append(identity)
-        
+
         if info['get_biases']: info['biases'].append(out)
         if info['get_features']: info['features'].append(out)
 
@@ -137,7 +137,7 @@ class Bottleneck(nn.Module):
     def forward(self, x):
         info = x[1]
         x = x[0]
-        
+
         identity = x
 
         if info['get_biases']: x = torch.zeros(x.size()).to(x.device)
@@ -299,14 +299,17 @@ class ResNet(nn.Module):
 
     def getBiases(self):
         """
-        Returns the explicit biases arising 
+        Returns the explicit biases arising
         from BatchNorm or convolution layers.
         """
+
+        cuda = torch.cuda.is_available()
+        device = torch.device("cuda" if cuda else "cpu")
 
         self.fullgrad_info['get_biases'] = True
         self.fullgrad_info['biases'] = [0]
 
-        x = torch.zeros(1,3,224,224)
+        x = torch.zeros(1,3,224,224).to(device)
         _ = self.forward(x)
         self.fullgrad_info['get_biases'] = False
         return self.fullgrad_info['biases']

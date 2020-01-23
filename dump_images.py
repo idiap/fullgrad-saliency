@@ -3,7 +3,7 @@
 # Written by Suraj Srinivas <suraj.srinivas@idiap.ch>
 #
 
-""" Compute saliency maps of images from dataset folder 
+""" Compute saliency maps of images from dataset folder
     and dump them in a results folder """
 
 import torch
@@ -43,6 +43,7 @@ unnormalize = NormalizeInverse(mean = [0.485, 0.456, 0.406],
 # uncomment to use VGG
 # model = vgg16_bn(pretrained=True)
 model = resnet18(pretrained=True)
+model = model.to(device)
 
 # Initialize FullGrad objects
 fullgrad = FullGrad(model)
@@ -60,7 +61,7 @@ def compute_saliency_and_save():
 
         # Save saliency maps
         for i in range(data.size(0)):
-            filename = save_path + str( (batch_idx+1) * (i+1)) 
+            filename = save_path + str( (batch_idx+1) * (i+1))
             filename_simple = filename + '_simple'
 
             image = unnormalize(data[i,:,:,:].cpu())
@@ -74,8 +75,8 @@ if __name__ == "__main__":
     compute_saliency_and_save()
     print('Saliency maps saved.')
 
-        
-        
+
+
 
 
 

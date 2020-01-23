@@ -13,7 +13,7 @@ from math import isclose
 
 class FullGrad():
     """
-    Compute FullGrad saliency map and full gradient decomposition 
+    Compute FullGrad saliency map and full gradient decomposition
     """
 
     def __init__(self, model, im_size = (3,224,224) ):
@@ -36,8 +36,11 @@ class FullGrad():
 
         """
 
+        cuda = torch.cuda.is_available()
+        device = torch.device("cuda" if cuda else "cpu")
+
         #Random input image
-        input = torch.randn(self.im_size)
+        input = torch.randn(self.im_size).to(device)
 
         # Get raw outputs
         self.model.eval()
@@ -52,9 +55,9 @@ class FullGrad():
 
         # Compare raw output and full gradient sum
         err_message = "\nThis is due to incorrect computation of bias-gradients. Please check models/vgg.py for more information."
-        err_string = "Completeness test failed! Raw output = " + str(raw_output.max().item()) + " Full-gradient sum = " + str(fullgradient_sum.item())  
+        err_string = "Completeness test failed! Raw output = " + str(raw_output.max().item()) + " Full-gradient sum = " + str(fullgradient_sum.item())
         assert isclose(raw_output.max().item(), fullgradient_sum.item(), rel_tol=0.00001), err_string + err_message
-        print('Completeness test passed for FullGrad.') 
+        print('Completeness test passed for FullGrad.')
 
 
     def fullGradientDecompose(self, image, target_class=None):
@@ -82,8 +85,8 @@ class FullGrad():
         # Loop through remaining gradients
         bias_gradient = []
         for i in range(1, len(gradients)):
-            bias_gradient.append(gradients[i] * self.blockwise_biases[i]) 
-        
+            bias_gradient.append(gradients[i] * self.blockwise_biases[i])
+
         return input_gradient, bias_gradient
 
     def _postProcess(self, input):
@@ -97,10 +100,10 @@ class FullGrad():
 
     def saliency(self, image, target_class=None):
         #FullGrad saliency
-        
+
         self.model.eval()
         input_grad, bias_grad = self.fullGradientDecompose(image, target_class=target_class)
-        
+
         # Input-gradient * image
         grd = input_grad[0] * image
         gradient = self._postProcess(grd).sum(1, keepdim=True)
@@ -111,13 +114,13 @@ class FullGrad():
         # Bias-gradients of conv layers
         for i in range(len(bias_grad)):
             # Checking if bias-gradients are 4d / 3d tensors
-            if len(bias_grad[i].size()) == len(im_size): 
+            if len(bias_grad[i].size()) == len(im_size):
                 temp = self._postProcess(bias_grad[i])
                 if len(im_size) == 3:
-                    gradient = F.interpolate(temp, size=im_size[2], mode = 'bilinear', align_corners=False) 
+                    gradient = F.interpolate(temp, size=im_size[2], mode = 'bilinear', align_corners=False)
                 elif len(im_size) == 4:
-                    gradient = F.interpolate(temp, size=(im_size[2], im_size[3]), mode = 'bilinear', align_corners=False) 
+                    gradient = F.interpolate(temp, size=(im_size[2], im_size[3]), mode = 'bilinear', align_corners=False)
                 cam += gradient.sum(1, keepdim=True)
 
         return cam
-        
+
