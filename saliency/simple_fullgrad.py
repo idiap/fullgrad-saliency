@@ -61,13 +61,13 @@ class SimpleFullGrad():
         
         return input_gradient, intermediate_gradient
 
-    def _postProcess(self, input):
+    def _postProcess(self, input, eps=1e-6):
         # Absolute value
         input = abs(input)
 
         # Rescale operations to ensure gradients lie between 0 and 1
         input = input - input.min()
-        input = input / (input.max())
+        input = input / (input.max() + eps)
         return input
 
     def saliency(self, image, target_class=None):
