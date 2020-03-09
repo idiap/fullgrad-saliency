@@ -79,7 +79,7 @@ class SimpleFullGrad():
         im_size = image.size()
 
         # Input-gradient * image
-        grd = input_grad[0] * image
+        grd = input_grad * image
         gradient = self._postProcess(grd).sum(1, keepdim=True)
         cam = gradient
 

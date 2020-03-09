@@ -105,7 +105,7 @@ class FullGrad():
         input_grad, bias_grad = self.fullGradientDecompose(image, target_class=target_class)
 
         # Input-gradient * image
-        grd = input_grad[0] * image
+        grd = input_grad * image
         gradient = self._postProcess(grd).sum(1, keepdim=True)
         cam = gradient
 
