@@ -3,7 +3,7 @@
 # Written by Suraj Srinivas <suraj.srinivas@idiap.ch>
 #
 
-""" 
+"""  
     Implement a simpler FullGrad-like saliency algorithm.
 
     Instead of exactly computing bias-gradients, we only
@@ -14,8 +14,8 @@
 
     Note: this algorithm is only provided for convenience and
     performance may not be match that of FullGrad for different
-    post-processing functions.
-
+    post-processing functions. 
+    
 """
 
 import torch
@@ -23,43 +23,35 @@ import torch.nn as nn
 import torch.nn.functional as F
 from math import isclose
 
+from saliency.tensor_extractor import FullGradExtractor
 
 class SimpleFullGrad():
     """
     Compute simple FullGrad saliency map 
     """
 
-    def __init__(self, model):
+    def __init__(self, model, im_size = (3,224,224) ):
         self.model = model
+        self.im_size = (1,) + im_size
+        self.model_ext = FullGradExtractor(model, im_size)
 
     def _getGradients(self, image, target_class=None):
         """
         Compute intermediate gradients for an image
         """
 
+        self.model.eval()
         image = image.requires_grad_()
-        out, features = self.model.getFeatures(image)
+        out = self.model(image)
 
         if target_class is None:
             target_class = out.data.max(1, keepdim=True)[1]
 
-        agg = 0
-        for i in range(image.size(0)):
-            agg += out[i,target_class[i]]
+        # Select the output unit corresponding to the target class
+        # -1 compensates for negation in nll_loss function
+        output_scalar = -1. * F.nll_loss(out, target_class.flatten(), reduction='sum')
 
-        self.model.zero_grad()
-        # Gradients w.r.t. input and features
-        gradients = torch.autograd.grad(outputs = agg, inputs = features, only_inputs=True)
-
-        # First element in the feature list is the image
-        input_gradient = gradients[0]
-
-        # Loop through remaining gradients
-        intermediate_gradient = []
-        for i in range(1, len(gradients)):
-            intermediate_gradient.append(gradients[i]) 
-        
-        return input_gradient, intermediate_gradient
+        return self.model_ext.getFeatureGrads(image, output_scalar)
 
     def _postProcess(self, input, eps=1e-6):
         # Absolute value
@@ -83,15 +75,14 @@ class SimpleFullGrad():
         gradient = self._postProcess(grd).sum(1, keepdim=True)
         cam = gradient
 
-        # Intermediate-gradients
+        # Aggregate Intermediate-gradients
         for i in range(len(intermed_grad)):
+
+            # Select only Conv layers 
             if len(intermed_grad[i].size()) == len(im_size):
                 temp = self._postProcess(intermed_grad[i])
-                if len(im_size) == 3:
-                    gradient = F.interpolate(temp, size=im_size[2], mode = 'bilinear', align_corners=False) 
-                elif len(im_size) == 4:
-                    gradient = F.interpolate(temp, size=(im_size[2], im_size[3]), mode = 'bilinear', align_corners=False) 
+                gradient = F.interpolate(temp, size=(im_size[2], im_size[3]), mode = 'bilinear', align_corners=False) 
                 cam += gradient.sum(1, keepdim=True)
 
         return cam
-        
+

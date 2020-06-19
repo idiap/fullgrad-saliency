@@ -10,6 +10,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from math import isclose
 
+from saliency.tensor_extractor import FullGradExtractor
 
 class FullGrad():
     """
@@ -19,14 +20,9 @@ class FullGrad():
     def __init__(self, model, im_size = (3,224,224) ):
         self.model = model
         self.im_size = (1,) + im_size
-        self.model.eval()
-        self.blockwise_biases = self.model.getBiases()
+        self.model_ext = FullGradExtractor(model, im_size)
+        self.biases = self.model_ext.getBiases()
         self.checkCompleteness()
-
-    def _getimplicitBiases(self, image, target_class):
-        # TODO: Compute implicit biases that arise due to non-ReLU non-linearities
-        # This appends to both the blockwise_biases and blockwise_features list
-        pass
 
     def checkCompleteness(self):
         """
@@ -56,7 +52,7 @@ class FullGrad():
         # Compare raw output and full gradient sum
         err_message = "\nThis is due to incorrect computation of bias-gradients. Please check models/vgg.py for more information."
         err_string = "Completeness test failed! Raw output = " + str(raw_output.max().item()) + " Full-gradient sum = " + str(fullgradient_sum.item())
-        assert isclose(raw_output.max().item(), fullgradient_sum.item(), rel_tol=0.00001), err_string + err_message
+        assert isclose(raw_output.max().item(), fullgradient_sum.item(), rel_tol=1e-4), err_string + err_message
         print('Completeness test passed for FullGrad.')
 
 
@@ -65,29 +61,37 @@ class FullGrad():
         Compute full-gradient decomposition for an image
         """
 
+        self.model.eval()
         image = image.requires_grad_()
-        out, features = self.model.getFeatures(image)
+        out = self.model(image)
 
         if target_class is None:
             target_class = out.data.max(1, keepdim=True)[1]
 
-        agg = 0
-        for i in range(image.size(0)):
-            agg += out[i,target_class[i]]
+        # Select the output unit corresponding to the target class
+        # -1 compensates for negation in nll_loss function
+        output_scalar = -1. * F.nll_loss(out, target_class.flatten(), reduction='sum')
 
-        self.model.zero_grad()
-        # Gradients w.r.t. input and features
-        gradients = torch.autograd.grad(outputs = agg, inputs = features, only_inputs=True)
+        input_gradient, feature_gradients = self.model_ext.getFeatureGrads(image, output_scalar)
 
-        # First element in the feature list is the image
-        input_gradient = gradients[0]
+        # Compute feature-gradients \times bias 
+        bias_times_gradients = []
+        L = len(self.biases)
 
-        # Loop through remaining gradients
-        bias_gradient = []
-        for i in range(1, len(gradients)):
-            bias_gradient.append(gradients[i] * self.blockwise_biases[i])
+        for i in range(L):
 
-        return input_gradient, bias_gradient
+            # feature gradients are indexed backwards 
+            # because of backprop
+            g = feature_gradients[L-1-i]
+
+            # reshape bias dimensionality to match gradients
+            bias_size = [1] * len(g.size())
+            bias_size[1] = self.biases[i].size(0)
+            b = self.biases[i].view(tuple(bias_size))
+            
+            bias_times_gradients.append(g * b.expand_as(g))
+
+        return input_gradient, bias_times_gradients
 
     def _postProcess(self, input, eps=1e-6):
         # Absolute value
@@ -111,15 +115,13 @@ class FullGrad():
 
         im_size = image.size()
 
-        # Bias-gradients of conv layers
+        # Aggregate Bias-gradients
         for i in range(len(bias_grad)):
-            # Checking if bias-gradients are 4d / 3d tensors
-            if len(bias_grad[i].size()) == len(im_size):
+
+            # Select only Conv layers
+            if len(bias_grad[i].size()) == len(im_size): 
                 temp = self._postProcess(bias_grad[i])
-                if len(im_size) == 3:
-                    gradient = F.interpolate(temp, size=im_size[2], mode = 'bilinear', align_corners=False)
-                elif len(im_size) == 4:
-                    gradient = F.interpolate(temp, size=(im_size[2], im_size[3]), mode = 'bilinear', align_corners=False)
+                gradient = F.interpolate(temp, size=(im_size[2], im_size[3]), mode = 'bilinear', align_corners=False)
                 cam += gradient.sum(1, keepdim=True)
 
         return cam

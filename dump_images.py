@@ -7,14 +7,12 @@
     and dump them in a results folder """
 
 import torch
-from torchvision import datasets, transforms, utils
+from torchvision import datasets, transforms, utils, models
 import os
 
 # Import saliency methods and models
 from saliency.fullgrad import FullGrad
 from saliency.simple_fullgrad import SimpleFullGrad
-from models.vgg import *
-from models.resnet import *
 from misc_functions import *
 
 # PATH variables
@@ -39,10 +37,8 @@ sample_loader = torch.utils.data.DataLoader(
 unnormalize = NormalizeInverse(mean = [0.485, 0.456, 0.406],
                            std = [0.229, 0.224, 0.225])
 
-
-# uncomment to use VGG
-# model = vgg16_bn(pretrained=True)
-model = resnet18(pretrained=True)
+# Use pretrained ResNet-18 provided by PyTorch
+model = models.resnet18(pretrained=True)
 model = model.to(device)
 
 # Initialize FullGrad objects
