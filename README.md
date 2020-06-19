@@ -36,32 +36,6 @@ fullgrad.fullGradientDecompose(input_image, target_class)
 saliency_map = fullgrad.saliency(input_image, target_class)
 ```
 
-The relevant bias parameters and bias-gradients of `model` are computed using a `FullGradExtractor` object.
-A correctly implemented `FullGradExtractor` for a given model results in passing the 
-`fullgrad.checkCompleteness()` test. The current implementation of `FullGradExtractor` works
-for ReLU/BatchNorm based models, and not for models employing LayerNorm, SelfAttention, etc. For 
-such models, `SimpleFullGrad` can be used. `FullGradExtractor` has the following interface.
-
-```python
-class FullGradExtractor:
-    def __init__(self, model):
-        # provide the model for which 
-        # relevant parameters must be extracted
-
-    def getBiases(self):
-        # obtain all bias parameters
-        # including BatchNorm parameters
-        # for model
-        ...
-
-    def getFeatureGrads(self, input, output):
-        # obtain gradients of a scalar output
-        # w.r.t. input, and all intermediate
-        # features which have biases as above
-        ...
-
-```
-
 We also introduce a simpler variant called `SimpleFullGrad` which skips bias parameter computations which results in a simpler interface, but no related completeness property or decomposition. 
 
 ```python
@@ -73,6 +47,14 @@ simple_fullgrad = SimpleFullGrad(model)
 # Obtain saliency maps
 saliency_map = simple_fullgrad.saliency(input_image, target_class)
 ```
+
+
+The relevant bias parameters and bias-gradients of `model` are computed using a `FullGradExtractor` class implemented in `saliency/tensor_extractor.py`.
+
+A correctly implemented `FullGradExtractor` for a given model results in passing the 
+`fullgrad.checkCompleteness()` test. The current implementation of `FullGradExtractor` works
+for ReLU/BatchNorm based models, and not for models employing LayerNorm, SelfAttention, etc. In most such cases, `SimpleFullGrad` can be used instead.
+
 
 
 
