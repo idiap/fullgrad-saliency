@@ -44,10 +44,14 @@ such models, `SimpleFullGrad` can be used. `FullGradExtractor` has the following
 
 ```python
 class FullGradExtractor:
+    def __init__(self, model):
+        # provide the model for which 
+        # relevant parameters must be extracted
 
     def getBiases(self):
         # obtain all bias parameters
-        # and batch norm running means
+        # including BatchNorm parameters
+        # for model
         ...
 
     def getFeatureGrads(self, input, output):
@@ -58,7 +62,7 @@ class FullGradExtractor:
 
 ```
 
-We also introduce a simpler variant called Simple FullGrad which skips bias parameter computations which results in a simpler interface, but no related completeness property or decomposition.
+We also introduce a simpler variant called `SimpleFullGrad` which skips bias parameter computations which results in a simpler interface, but no related completeness property or decomposition. 
 
 ```python
 from saliency.simple_fullgrad import SimpleFullGrad
