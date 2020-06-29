@@ -18,9 +18,7 @@ class FullGradExtractor:
 
         self.biases = []
         self.feature_grads = []
-
         self.grad_handles = []
-        self.relu_handles = []
 
         # Iterate through layers
         for m in self.model.modules():

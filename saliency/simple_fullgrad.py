@@ -13,8 +13,7 @@
     and the aggregation is the same.
 
     Note: this algorithm is only provided for convenience and
-    performance may not be match that of FullGrad for different
-    post-processing functions. 
+    performance may not be match that of FullGrad. 
     
 """
 
@@ -58,8 +57,13 @@ class SimpleFullGrad():
         input = abs(input)
 
         # Rescale operations to ensure gradients lie between 0 and 1
-        input = input - input.min()
-        input = input / (input.max() + eps)
+        flatin = input.view((input.size(0),-1))
+        temp, _ = flatin.min(1, keepdim=True)
+        input = input - temp.unsqueeze(1).unsqueeze(1)
+
+        flatin = input.view((input.size(0),-1))
+        temp, _ = flatin.max(1, keepdim=True)
+        input = input / (temp.unsqueeze(1).unsqueeze(1) + eps)
         return input
 
     def saliency(self, image, target_class=None):
@@ -81,7 +85,7 @@ class SimpleFullGrad():
             # Select only Conv layers 
             if len(intermed_grad[i].size()) == len(im_size):
                 temp = self._postProcess(intermed_grad[i])
-                gradient = F.interpolate(temp, size=(im_size[2], im_size[3]), mode = 'bilinear', align_corners=False) 
+                gradient = F.interpolate(temp, size=(im_size[2], im_size[3]), mode = 'bilinear', align_corners=True) 
                 cam += gradient.sum(1, keepdim=True)
 
         return cam

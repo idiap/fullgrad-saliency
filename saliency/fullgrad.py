@@ -27,8 +27,7 @@ class FullGrad():
     def checkCompleteness(self):
         """
         Check if completeness property is satisfied. If not, it usually means that
-        some bias gradients are not computed (e.g.: implicit biases). Check
-        models/vgg.py for more information.
+        some bias gradients are not computed (e.g.: implicit biases of non-linearities).
 
         """
 
@@ -50,7 +49,7 @@ class FullGrad():
             fullgradient_sum += bias_grad[i].sum()
 
         # Compare raw output and full gradient sum
-        err_message = "\nThis is due to incorrect computation of bias-gradients. Please check models/vgg.py for more information."
+        err_message = "\nThis is due to incorrect computation of bias-gradients."
         err_string = "Completeness test failed! Raw output = " + str(raw_output.max().item()) + " Full-gradient sum = " + str(fullgradient_sum.item())
         assert isclose(raw_output.max().item(), fullgradient_sum.item(), rel_tol=1e-4), err_string + err_message
         print('Completeness test passed for FullGrad.')
@@ -98,8 +97,13 @@ class FullGrad():
         input = abs(input)
 
         # Rescale operations to ensure gradients lie between 0 and 1
-        input = input - input.min()
-        input = input / (input.max() + eps)
+        flatin = input.view((input.size(0),-1))
+        temp, _ = flatin.min(1, keepdim=True)
+        input = input - temp.unsqueeze(1).unsqueeze(1)
+
+        flatin = input.view((input.size(0),-1))
+        temp, _ = flatin.max(1, keepdim=True)
+        input = input / (temp.unsqueeze(1).unsqueeze(1) + eps)
         return input
 
     def saliency(self, image, target_class=None):
@@ -121,7 +125,7 @@ class FullGrad():
             # Select only Conv layers
             if len(bias_grad[i].size()) == len(im_size): 
                 temp = self._postProcess(bias_grad[i])
-                gradient = F.interpolate(temp, size=(im_size[2], im_size[3]), mode = 'bilinear', align_corners=False)
+                gradient = F.interpolate(temp, size=(im_size[2], im_size[3]), mode = 'bilinear', align_corners=True)
                 cam += gradient.sum(1, keepdim=True)
 
         return cam
