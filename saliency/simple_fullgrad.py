@@ -31,7 +31,6 @@ class SimpleFullGrad():
 
     def __init__(self, model, im_size = (3,224,224) ):
         self.model = model
-        self.im_size = (1,) + im_size
         self.model_ext = FullGradExtractor(model, im_size)
 
     def _getGradients(self, image, target_class=None):

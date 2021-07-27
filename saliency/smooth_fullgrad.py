@@ -23,11 +23,11 @@ class SmoothFullGrad():
     Compute smooth Fullgrad 
     """
 
-    def __init__(self, model, num_samples=25, std_spread=0.15):
+    def __init__(self, model, num_samples=25, std_spread=0.15, im_size = (3,224,224)):
         self.model = model
         self.num_samples = num_samples
         self.std_spread = std_spread
-        self.fg = FullGrad(model)
+        self.fg = FullGrad(model, im_size)
 
     def saliency(self, image, target_class=None):
         #SmoothFullGrad saliency

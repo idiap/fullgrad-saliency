@@ -28,7 +28,7 @@ In addition, the following methods from literature are also implemented:
 
 | ![GradCAM](images/1_gradcam.jpg) | ![Input-Gradient](images/1_inputgrad.jpg) | ![SmoothGrad](images/1_smoothgrad.jpg) |
 |:---:|:---:|:---:| 
-| [*Grad-CAM*](https://arxiv.org/abs/1706.03825) | [Input-Gradients](https://arxiv.org/abs/1312.6034) | [SmoothGrad](https://arxiv.org/abs/1706.03825) |
+| *Grad-CAM* | *Input-Gradients* | *SmoothGrad* |
 
 
 ## Usage

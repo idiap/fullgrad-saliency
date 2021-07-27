@@ -48,7 +48,7 @@ class InputGradient():
 
         self.model.zero_grad()
         # Gradients w.r.t. input and features
-        gradients = torch.autograd.grad(outputs = agg, inputs = image, only_inputs=True, retain_graph=True)[0]
+        gradients = torch.autograd.grad(outputs = agg, inputs = image, only_inputs=True, retain_graph=False)[0]
 
         # First element in the feature list is the image
         return gradients
